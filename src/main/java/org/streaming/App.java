@@ -17,17 +17,23 @@ public class App {
     private static final ByteBuffer readBuffer = ByteBuffer.allocate(4096);
 
     public static void main(String[] args) throws IOException {
-        var ssc = ServerSocketChannel.open();
-        ssc.configureBlocking(false);
+        var serverSocketChannel = ServerSocketChannel.open();
+        serverSocketChannel.configureBlocking(false);
 
         // bind to local port
         var isa = new InetSocketAddress("localhost", PORT);
-        ssc.socket().bind(isa);
+        serverSocketChannel.socket().bind(isa);
         // selectors
         var serverSelector = SelectorProvider.provider().openSelector();
-        ssc.register(serverSelector, SelectionKey.OP_ACCEPT);
+        serverSocketChannel.register(serverSelector, SelectionKey.OP_ACCEPT);
+
+        // Examples: sun/net/httpserver/ServerImpl.java:509
 
         while (true) {
+            /**
+             * TODO: select() has overload with msTimeout param that will return after given timeout.
+             * If sockets didn't get any data during that time - we can close them if we want.
+             */
             serverSelector.select();
             System.out.println("After select ---------");
             var selectedKeys = serverSelector.selectedKeys().iterator();
@@ -39,12 +45,13 @@ public class App {
                     System.out.println("Key invalid: " + key);
                 }
 
-                if (key.isAcceptable()) {
+                if (key.channel().equals(serverSocketChannel)) { // or `key.isAcceptable()`
                     System.out.println("Acceptable");
-                    var socketChannel = ssc.accept(); // new connection from client
+                    var socketChannel = serverSocketChannel.accept(); // new connection from client
                     socketChannel.configureBlocking(false);
                     socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
                     socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
+                    socketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
 //                    int interest = SelectionKey.OP_READ | SelectionKey.OP_WRITE;
                     int interest = SelectionKey.OP_READ;
                     socketChannel.register(serverSelector, interest);
@@ -59,9 +66,9 @@ public class App {
                         var bytes = new byte[read];
                         readBuffer.get(0, bytes);
                         System.out.println(String.format(
-                                        "Data:----------------------\n%s\n------------------\n from client key: %s\n",
-                                        new String(bytes),
-                                        key
+                                        "Data from client key:\n%s:\n----------------------------------------\n%s",
+                                        key,
+                                        new String(bytes)
                                 )
                         );
 
