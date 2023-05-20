@@ -91,7 +91,14 @@ public class App {
                     }
                 }
             } catch (IOException e) {
+
                 System.out.println("IO exceptions in vThread");
+            } finally {
+                try {
+                    chan.close();
+                } catch (IOException e) {
+                    System.out.println("Couldn't close chan in virtual thread");
+                }
             }
         });
     }
