@@ -1,4 +1,4 @@
-package org.streaming;
+package streaming.web;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
