@@ -8,14 +8,20 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class App {
     private static final int PORT = 5555;
     private static Logger logger;
+    private static ExecutorService executor;
 
     static {
         logger = new Logger(App.class.getName());
+        final ThreadFactory f = Thread.ofVirtual().name("routine-", 0).factory();
+        executor = Executors.newThreadPerTaskExecutor(f);
     }
 
     public static void main(String[] args) throws IOException {
@@ -70,8 +76,9 @@ public class App {
     static AtomicLong count = new AtomicLong(0);
 
     static void processIncoming(SocketChannel chan) {
-        Thread.ofVirtual().name("Request handler vThread").start(() -> {
+        executor.submit(() -> {
             try {
+                logger.info(Thread.currentThread().toString());
                 final ByteBuffer readBuffer = ByteBuffer.allocate(65536);
                 while (true) {
                     logger.info("Count: " + count.getAndIncrement() + "channel " + chan);
