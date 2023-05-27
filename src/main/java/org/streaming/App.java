@@ -8,7 +8,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
-import java.time.Duration;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class App {
     private static final int PORT = 5555;
@@ -36,13 +36,11 @@ public class App {
              * TODO: select() has overload with msTimeout param that will return after given timeout.
              * If sockets didn't get any data during that time - we can close them if we want.
              */
-            logger.info("Before select");
             serverSelector.select();
-            logger.info("After select");
             var selectedKeys = serverSelector.selectedKeys().iterator();
             while (selectedKeys.hasNext()) {
                 var key = selectedKeys.next();
-                logger.info("Key: " + key);
+//                logger.info("Key: " + key);
 
                 selectedKeys.remove();
                 if (!key.isValid()) {
@@ -50,8 +48,6 @@ public class App {
                 }
 
                 if (key.channel().equals(serverSocketChannel)) { // or `key.isAcceptable()`
-                    logger.info("New connection");
-
                     var socketChannel = serverSocketChannel.accept(); // new connection from client
                     socketChannel.configureBlocking(false);
                     socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
@@ -63,27 +59,27 @@ public class App {
                 } else if (key.isReadable()) { // incoming data on existing connection
                     key.cancel();
                     // call the selector just to process the cancelled keys
-                    serverSelector.selectNow();
-
+//                    serverSelector.selectNow();
                     var chan = (SocketChannel) key.channel();
-
-                    logger.info("Before processIncoming");
                     processIncoming(chan);
-                    logger.info("After processIncoming");
                 }
             }
         }
     }
 
+    static AtomicLong count = new AtomicLong(0);
+
     static void processIncoming(SocketChannel chan) {
         Thread.ofVirtual().name("Request handler vThread").start(() -> {
             try {
                 final ByteBuffer readBuffer = ByteBuffer.allocate(65536);
-                while(true) {
-                    Thread.sleep(Duration.ofSeconds(2));
-//                    chan.configureBlocking(true);
+                while (true) {
+                    logger.info("Count: " + count.getAndIncrement() + "channel " + chan);
+//                    Thread.sleep(Duration.ofSeconds(2));
+                    chan.configureBlocking(true);
                     int read = chan.read(readBuffer.clear());
                     if (read == -1 || read == 0) {
+                        logger.info("Closing channel. read: " + read);
                         chan.close();
                         break;
                     } else {
@@ -111,16 +107,13 @@ public class App {
                 }
             } catch (IOException e) {
                 try {
-                    if(chan.isOpen()) chan.close();
+                    if (chan.isOpen()) chan.close();
                 } catch (IOException ex) {
                     logger.info("throw new RuntimeException(ex");
                 }
-            } catch (InterruptedException e) {
-                logger.info("InterruptedException e)");
-                throw new RuntimeException(e);
-            }  finally {
+            } finally {
                 try {
-                    if(chan.isOpen()) chan.close();
+                    if (chan.isOpen()) chan.close();
                 } catch (IOException e) {
                     logger.info("Couldn't close chan in virtual thread");
                 }
