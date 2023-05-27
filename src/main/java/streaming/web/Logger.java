@@ -7,10 +7,13 @@ public class Logger {
 
     public Logger(String className) {
         logger = java.util.logging.Logger.getLogger(className);
-        
     }
 
     public void info(String logString) {
         logger.log(Level.INFO, "\u001B[32m" + logString + "\u001B[32m");
+    }
+
+    public void error(String logString) {
+        logger.log(Level.SEVERE, "\u001B[31m" + logString + "\u001B[31m");
     }
 }

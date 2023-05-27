@@ -46,7 +46,6 @@ public class App {
             var selectedKeys = serverSelector.selectedKeys().iterator();
             while (selectedKeys.hasNext()) {
                 var key = selectedKeys.next();
-//                logger.info("Key: " + key);
 
                 selectedKeys.remove();
                 if (!key.isValid()) {
@@ -59,7 +58,6 @@ public class App {
                     socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
                     socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
                     socketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-//                    int interest = SelectionKey.OP_READ | SelectionKey.OP_WRITE;
                     int interest = SelectionKey.OP_READ;
                     socketChannel.register(serverSelector, interest);
                 } else if (key.isReadable()) { // incoming data on existing connection
@@ -82,7 +80,6 @@ public class App {
                 final ByteBuffer readBuffer = ByteBuffer.allocate(65536);
                 while (true) {
                     logger.info("Count: " + count.getAndIncrement() + "channel " + chan);
-//                    Thread.sleep(Duration.ofSeconds(2));
                     chan.configureBlocking(true);
                     int read = chan.read(readBuffer.clear());
                     if (read == -1 || read == 0) {
@@ -92,37 +89,28 @@ public class App {
                     } else {
                         var bytes = new byte[read];
                         readBuffer.get(0, bytes);
-                        logger.info((String.format(
-                                "Data from client channel:\n%s:\n----------------------------------------\n%s",
-                                chan,
-                                new String(bytes)
-                        )));
+                        String response = HttpProcessor.process(bytes);
 
-                        String html = "{\"data\": \"custom html response\"}";
-                        final String CRLF = "\n\r"; // 13, 10
-                        String response =
-                                "HTTP/2.0 200 OK" + CRLF
-                                        + "Access-Control-Allow-Origin: *" + CRLF
-                                        + "Content-Length: " + (html.getBytes().length + CRLF.getBytes().length) + CRLF
-                                        + CRLF
-                                        + html
-                                        + CRLF + CRLF;
-
-                        // ((SocketChannel) key.channel()).write(ByteBuffer.wrap(bytes));
                         chan.write(ByteBuffer.wrap(response.getBytes()));
                     }
                 }
             } catch (IOException e) {
                 try {
-                    if (chan.isOpen()) chan.close();
+                    if (chan.isOpen()){
+                        chan.close();
+                        logger.error("Closing channel");
+                    }
                 } catch (IOException ex) {
                     logger.info("throw new RuntimeException(ex");
                 }
             } finally {
                 try {
-                    if (chan.isOpen()) chan.close();
+                    if (chan.isOpen()) {
+                        chan.close();
+                        logger.info("Closing channel");
+                    }
                 } catch (IOException e) {
-                    logger.info("Couldn't close chan in virtual thread");
+                    logger.error("Couldn't close chan in virtual thread");
                 }
             }
         });
